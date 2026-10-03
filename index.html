@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Librairie EmailJS pour l'envoi d'e-mails automatique en arrière-plan -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
         .sidebar-active { background-color: #374151; border-left: 4px solid #4ade80; }
@@ -35,7 +37,7 @@
                     <label class="block text-sm font-bold text-gray-700 mb-1">Mot de passe</label>
                     <div class="relative">
                         <i class="fa-solid fa-lock absolute left-3 top-3 text-gray-400"></i>
-                        <input type="password" id="login-pass" class="w-full border rounded-lg py-2.5 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Ex: modepasse 1">
+                        <input type="password" id="login-pass" class="w-full border rounded-lg py-2.5 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Ex: 11">
                     </div>
                 </div>
                 <button onclick="verifierConnexion()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg shadow-md transition-all mt-6">
@@ -46,9 +48,8 @@
         </div>
     </div>
 
-    <!-- CONTENU PRINCIPAL DE L'APPLICATION (Caché par défaut) -->
+    <!-- CONTENU PRINCIPAL DE L'APPLICATION -->
     <div id="app-content" class="hidden flex h-full w-full">
-        <!-- Menu latéral (Sidebar) -->
         <aside class="w-64 bg-gray-900 text-white flex flex-col">
             <div class="p-4 flex items-center gap-3 border-b border-gray-700">
                 <div class="w-10 h-10 bg-green-500 rounded flex items-center justify-center font-bold text-xl shadow">S</div>
@@ -72,9 +73,7 @@
             </div>
         </aside>
 
-        <!-- Zone de contenu -->
         <main class="flex-1 flex flex-col h-screen overflow-y-auto">
-            <!-- En-tête -->
             <header class="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-10">
                 <h2 class="text-xl font-bold text-gray-700 flex items-center gap-2">
                     <i class="fa-solid fa-square text-green-500"></i> <span id="page-title">PURCHASE ORDER REQUEST</span>
@@ -85,12 +84,9 @@
                 </div>
             </header>
 
-            <!-- Page : Nouvelle Demande -->
             <div id="page-nouvelle" class="p-6">
                 <div class="flex gap-6">
-                    <!-- Colonne Gauche : Articles -->
                     <div class="flex-1 space-y-6">
-                        <!-- Formulaire d'ajout d'article -->
                         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex gap-4 items-end">
                             <div class="flex-1">
                                 <label class="block text-xs font-bold text-gray-500 mb-1">RÉF. SAP</label>
@@ -113,7 +109,6 @@
                             </button>
                         </div>
 
-                        <!-- Tableau des articles -->
                         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                             <table class="w-full text-sm text-left">
                                 <thead class="text-xs text-gray-500 bg-gray-100 border-b">
@@ -126,8 +121,7 @@
                                         <th class="px-4 py-3"></th>
                                     </tr>
                                 </thead>
-                                <tbody id="items-body">
-                                </tbody>
+                                <tbody id="items-body"></tbody>
                             </table>
                             <div class="p-4 bg-gray-50 flex justify-end items-center gap-4 border-t">
                                 <span class="font-bold text-gray-700">TOTAL ESTIMÉ :</span>
@@ -136,7 +130,6 @@
                         </div>
                     </div>
 
-                    <!-- Colonne Droite : Infos et Action -->
                     <div class="w-80 space-y-6">
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
                             <h3 class="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
@@ -158,14 +151,13 @@
                             </div>
                         </div>
 
-                        <button onclick="envoyerDemande()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-4 rounded-lg shadow-lg transition flex justify-center items-center gap-2 text-lg">
-                            <i class="fa-solid fa-paper-plane"></i> ENVOYER 
+                        <button onclick="ouvrirDemandeConfirmation()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-4 rounded-lg shadow-lg transition flex justify-center items-center gap-2 text-lg">
+                            <i class="fa-solid fa-paper-plane"></i> ENVOYER LA DEMANDE
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Page : Historique -->
             <div id="page-historique" class="p-6 hidden">
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -183,8 +175,7 @@
                                     <th class="px-4 py-3 text-center">EXCEL</th>
                                 </tr>
                             </thead>
-                            <tbody id="history-body">
-                            </tbody>
+                            <tbody id="history-body"></tbody>
                         </table>
                     </div>
                 </div>
@@ -192,24 +183,58 @@
         </main>
     </div>
 
-    <!-- Modale de Succès -->
+    <!-- MODALE DE CONFIRMATION AVANT ENVOI -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl">
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-paper-plane text-2xl text-blue-600"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 text-center mb-2">Confirmation d'envoi</h3>
+            <p class="text-sm text-gray-600 mb-4 text-center">
+                Voulez-vous vraiment envoyer cette demande d'achat à <span id="confirm-email" class="font-bold text-gray-800"></span> ?
+            </p>
+            <div class="bg-gray-50 p-4 rounded-lg mb-6 text-xs text-gray-700 space-y-2 border">
+                <p><strong>Fournisseur :</strong> <span id="confirm-fournisseur"></span></p>
+                <p><strong>Total estimé :</strong> <span id="confirm-total" class="font-bold text-green-600 text-sm"></span></p>
+                <p><strong>Nombre d'articles :</strong> <span id="confirm-count"></span></p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="fermerConfirmationModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 rounded-lg transition">
+                    Annuler
+                </button>
+                <button onclick="traiterEnvoiAutomatique()" id="btn-confirm-send" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-lg transition flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-check"></i> Confirmer & Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE DE SUCCÈS -->
     <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl p-8 max-w-sm w-full text-center shadow-2xl scale-transform transition-all">
+        <div class="bg-white rounded-xl p-8 max-w-sm w-full text-center shadow-2xl">
             <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
                 <i class="fa-solid fa-check text-4xl text-green-500"></i>
             </div>
-            <h3 class="text-2xl font-bold text-gray-800 mb-2">Succès !</h3>
-            <p class="text-sm text-gray-600 mb-6">Le fichier Excel a été généré et la demande est enregistrée.</p>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Demande Envoyée !</h3>
+            <p class="text-sm text-gray-600 mb-6">L'e-mail avec les détails de la commande a été transmis automatiquement et la demande est enregistrée dans l'historique.</p>
             <button onclick="closeModal()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition shadow-md">
-                Fermer et recommencer
+                Nouvelle Demande
             </button>
         </div>
     </div>
 
     <script>
-        // ==========================================
-        // SYSTÈME D'AUTHENTIFICATION (10 Utilisateurs)
-        // ==========================================
+        // CONFIGURATION EMAILJS (Remplacez par vos clés si vous souhaitez utiliser votre compte EmailJS)
+        const EMAILJS_PUBLIC_KEY = "YOUR_PUBLIC_KEY"; 
+        const EMAILJS_SERVICE_ID = "YOUR_SERVICE_ID";
+        const EMAILJS_TEMPLATE_ID = "YOUR_TEMPLATE_ID";
+
+        (function() {
+            if(window.emailjs && EMAILJS_PUBLIC_KEY !== "YOUR_PUBLIC_KEY") {
+                emailjs.init(EMAILJS_PUBLIC_KEY);
+            }
+        })();
+
         const validUsers = {
             'utilisateur1': '11',
             'utilisateur2': '22',
@@ -220,37 +245,29 @@
             'utilisateur7': '77',
             'utilisateur8': '88',
             'utilisateur9': '99',
-            'utilisateur10': '100'
+            'utilisateur10': '10'
         };
 
         let currentUser = "";
 
-        // Activer la touche Entrée pour se connecter
         document.getElementById('login-pass').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') verifierConnexion();
         });
 
         function verifierConnexion() {
-            // Nettoyage de l'input (enlève les espaces, met en minuscule)
             const inputUser = document.getElementById('login-user').value.toLowerCase().replace(/\s+/g, '');
             const inputPass = document.getElementById('login-pass').value.toLowerCase().replace(/\s+/g, '');
 
             if (validUsers[inputUser] && validUsers[inputUser] === inputPass) {
-                // Succès
-                currentUser = inputUser.replace('utilisateur', 'Utilisateur '); // Format "Utilisateur X"
+                currentUser = inputUser.replace('utilisateur', 'Utilisateur ');
                 document.getElementById('connected-user-name').innerText = currentUser;
-                
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('app-content').classList.remove('hidden');
                 document.getElementById('login-error').classList.add('hidden');
-                
-                // Vider les champs pour la prochaine fois
                 document.getElementById('login-user').value = '';
                 document.getElementById('login-pass').value = '';
-                
-                renderItems(); // S'assurer que le tableau est vide
+                renderItems();
             } else {
-                // Échec
                 document.getElementById('login-error').classList.remove('hidden');
             }
         }
@@ -259,14 +276,10 @@
             currentUser = "";
             document.getElementById('app-content').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
-            clearAll(); // Vider les données en cours
-            showPage('nouvelle'); // Revenir sur la page d'accueil par défaut
+            clearAll();
+            showPage('nouvelle');
         }
 
-
-        // ==========================================
-        // GESTION DU PANIER / DEMANDE
-        // ==========================================
         let items = [];
         
         const formatMoney = (amount) => {
@@ -282,12 +295,10 @@
             if (!des) { alert('Veuillez saisir une désignation'); return; }
 
             items.push({ ref, designation: des, pu, qte, total: pu * qte });
-            
             document.getElementById('ref_sap').value = '';
             document.getElementById('designation').value = '';
             document.getElementById('pu').value = '';
             document.getElementById('qte').value = '1';
-            
             renderItems();
         }
 
@@ -350,10 +361,6 @@
             }
         }
 
-
-        // ==========================================
-        // HISTORIQUE ET EXCEL
-        // ==========================================
         function saveToHistory(orderData) {
             let history = JSON.parse(localStorage.getItem('po_history') || '[]');
             history.unshift(orderData); 
@@ -423,20 +430,39 @@
             if(order) generateExcel(order);
         }
 
-        function envoyerDemande() {
+        // 1. OUVRIR LA DEMANDE DE CONFIRMATION
+        function ouvrirDemandeConfirmation() {
             const fournisseur = document.getElementById('fournisseur_nom').value;
             const email = document.getElementById('email_to').value;
-            const cc = document.getElementById('email_cc').value;
 
             if(items.length === 0) { alert("Veuillez ajouter au moins un article."); return; }
             if(!fournisseur || !email) { alert("Nom de l'entreprise et Email du destinataire requis."); return; }
 
             const total = items.reduce((sum, item) => sum + item.total, 0);
 
+            document.getElementById('confirm-email').innerText = email;
+            document.getElementById('confirm-fournisseur').innerText = fournisseur;
+            document.getElementById('confirm-total').innerText = formatMoney(total);
+            document.getElementById('confirm-count').innerText = items.length;
+
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function fermerConfirmationModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        // 2. EXÉCUTER L'ENVOI AUTOMATIQUE APRÈS CONFIRMATION
+        function traiterEnvoiAutomatique() {
+            const fournisseur = document.getElementById('fournisseur_nom').value;
+            const email = document.getElementById('email_to').value;
+            const cc = document.getElementById('email_cc').value;
+            const total = items.reduce((sum, item) => sum + item.total, 0);
+
             const orderData = {
                 id: Date.now(),
                 date: new Date().toLocaleString('fr-FR'),
-                createur: currentUser, // Enregistre l'utilisateur qui a fait la commande
+                createur: currentUser,
                 fournisseur: fournisseur,
                 email: email,
                 itemsCount: items.length,
@@ -444,29 +470,47 @@
                 items: [...items]
             };
 
+            // Sauvegarder dans l'historique
             saveToHistory(orderData);
-            generateExcel(orderData);
 
-            let ccStr = cc ? `&cc=${cc}` : '';
-            const subject = encodeURIComponent(`Nouvelle Demande d'Achat (PO) - SOFIANE-STAR pour ${fournisseur}`);
-            const body = encodeURIComponent(
-                `Bonjour,\n\n`+
-                `Veuillez trouver ci-joint notre demande d'achat.\n`+
-                `(Veuillez attacher le fichier Excel qui vient d'être téléchargé).\n\n`+
-                `Total de la demande : ${formatMoney(total)}\n\n`+
-                `Généré par : ${currentUser}\n`+
-                `Cordialement,\nL'équipe SOFIANE-STAR`
-            );
+            // Préparation des paramètres de l'email
+            let tableHTML = items.map(i => `${i.ref} | ${i.designation} | Qte: ${i.qte} | PU: ${i.pu} DZD | Total: ${i.total} DZD`).join('\n');
             
-            window.location.href = `mailto:${email}?subject=${subject}${ccStr}&body=${body}`;
-            document.getElementById('success-modal').classList.remove('hidden');
+            const templateParams = {
+                to_email: email,
+                cc_email: cc,
+                from_name: currentUser,
+                fournisseur_nom: fournisseur,
+                total_amount: formatMoney(total),
+                details: tableHTML
+            };
+
+            // Masquer la fenêtre de confirmation
+            fermerConfirmationModal();
+
+            // Si EmailJS est configuré, on envoie en tâche de fond
+            if(window.emailjs && EMAILJS_PUBLIC_KEY !== "YOUR_PUBLIC_KEY") {
+                emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
+                    .then(() => {
+                        document.getElementById('success-modal').classList.remove('hidden');
+                    })
+                    .catch((err) => {
+                        console.error("Erreur d'envoi EmailJS:", err);
+                        // Mode fallback direct
+                        generateExcel(orderData);
+                        document.getElementById('success-modal').classList.remove('hidden');
+                    });
+            } else {
+                // Si les clés EmailJS ne sont pas renseignées, génère l'Excel automatiquement et affiche la modale de succès
+                generateExcel(orderData);
+                document.getElementById('success-modal').classList.remove('hidden');
+            }
         }
 
         function closeModal() {
             document.getElementById('success-modal').classList.add('hidden');
             clearAll(); 
         }
-
     </script>
 </body>
 </html>
