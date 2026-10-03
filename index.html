@@ -7,8 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Librairie EmailJS pour l'envoi d'e-mails automatique en arrière-plan -->
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
         .sidebar-active { background-color: #374151; border-left: 4px solid #4ade80; }
@@ -148,6 +146,12 @@
                                     <label class="block text-xs font-bold text-gray-500 mb-1">COPIE (CC)</label>
                                     <input type="email" id="email_cc" class="w-full border rounded p-2 text-sm focus:ring-1 focus:ring-green-400" placeholder="collegue@sofianestar.com">
                                 </div>
+                                <div class="pt-2 border-t mt-2">
+                                    <label class="block text-xs font-bold text-blue-600 mb-1">
+                                        <i class="fa-solid fa-file-pdf"></i> JOINDRE JUSTIFICATIF (PDF optionnel)
+                                    </label>
+                                    <input type="file" id="pdf_file" accept=".pdf" class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 bg-gray-50 rounded border p-1">
+                                </div>
                             </div>
                         </div>
 
@@ -197,13 +201,14 @@
                 <p><strong>Fournisseur :</strong> <span id="confirm-fournisseur"></span></p>
                 <p><strong>Total estimé :</strong> <span id="confirm-total" class="font-bold text-green-600 text-sm"></span></p>
                 <p><strong>Nombre d'articles :</strong> <span id="confirm-count"></span></p>
+                <p id="confirm-pdf-status" class="text-blue-600 font-bold hidden"><i class="fa-solid fa-paperclip"></i> Justificatif PDF joint</p>
             </div>
             <div class="flex gap-3">
                 <button onclick="fermerConfirmationModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 rounded-lg transition">
                     Annuler
                 </button>
                 <button onclick="traiterEnvoiAutomatique()" id="btn-confirm-send" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-lg transition flex justify-center items-center gap-2">
-                    <i class="fa-solid fa-check"></i> Confirmer & Envoyer
+                    <i id="spinner-icon" class="fa-solid fa-check"></i> <span id="btn-text">Confirmer & Envoyer</span>
                 </button>
             </div>
         </div>
@@ -216,36 +221,34 @@
                 <i class="fa-solid fa-check text-4xl text-green-500"></i>
             </div>
             <h3 class="text-2xl font-bold text-gray-800 mb-2">Demande Envoyée !</h3>
-            <p class="text-sm text-gray-600 mb-6">L'e-mail avec les détails de la commande a été transmis automatiquement et la demande est enregistrée dans l'historique.</p>
+            <p class="text-sm text-gray-600 mb-6">L'e-mail a été transmis avec succès contenant le fichier Excel (et le PDF). Une copie Excel locale a été téléchargée pour vos archives.</p>
             <button onclick="closeModal()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition shadow-md">
                 Nouvelle Demande
             </button>
         </div>
     </div>
 
-    <script>
-        // CONFIGURATION EMAILJS (Remplacez par vos clés si vous souhaitez utiliser votre compte EmailJS)
-        const EMAILJS_PUBLIC_KEY = "YOUR_PUBLIC_KEY"; 
-        const EMAILJS_SERVICE_ID = "YOUR_SERVICE_ID";
-        const EMAILJS_TEMPLATE_ID = "YOUR_TEMPLATE_ID";
+    <!-- MODALE D'ERREUR -->
+    <div id="error-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 max-w-sm w-full text-center shadow-2xl">
+            <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                <i class="fa-solid fa-xmark text-4xl text-red-500"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Erreur d'envoi</h3>
+            <p id="error-message" class="text-sm text-gray-600 mb-6">Un problème est survenu lors de l'envoi de l'e-mail.</p>
+            <button onclick="closeErrorModal()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg transition shadow-md">
+                Fermer
+            </button>
+        </div>
+    </div>
 
-        (function() {
-            if(window.emailjs && EMAILJS_PUBLIC_KEY !== "YOUR_PUBLIC_KEY") {
-                emailjs.init(EMAILJS_PUBLIC_KEY);
-            }
-        })();
+    <script>
+        // URL de votre script Google Apps
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzVG5KKaPtq6boWHs9mZhZixnRWpMawPiyX1aAukdOIWIcJ1sQmal_Y3AHwIzg1_OAk3Q/exec";
 
         const validUsers = {
-            'utilisateur1': '11',
-            'utilisateur2': '22',
-            'utilisateur3': '33',
-            'utilisateur4': '44',
-            'utilisateur5': '55',
-            'utilisateur6': '66',
-            'utilisateur7': '77',
-            'utilisateur8': '88',
-            'utilisateur9': '99',
-            'utilisateur10': '10'
+            'utilisateur1': '11', 'utilisateur2': '22', 'utilisateur3': '33', 'utilisateur4': '44', 'utilisateur5': '55',
+            'utilisateur6': '66', 'utilisateur7': '77', 'utilisateur8': '88', 'utilisateur9': '99', 'utilisateur10': '10'
         };
 
         let currentUser = "";
@@ -283,7 +286,7 @@
         let items = [];
         
         const formatMoney = (amount) => {
-            return new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount) + ' DZD';
+            return new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
         };
 
         function addItem() {
@@ -322,8 +325,8 @@
                             <td class="px-4 py-3 font-medium text-gray-700">${item.ref}</td>
                             <td class="px-4 py-3 text-gray-600">${item.designation}</td>
                             <td class="px-4 py-3 text-center"><span class="bg-gray-200 px-2 py-1 rounded text-xs font-bold text-gray-700">${item.qte}</span></td>
-                            <td class="px-4 py-3 text-right text-gray-600">${formatMoney(item.pu)}</td>
-                            <td class="px-4 py-3 text-right font-bold text-gray-800">${formatMoney(item.total)}</td>
+                            <td class="px-4 py-3 text-right text-gray-600">${formatMoney(item.pu)} DZD</td>
+                            <td class="px-4 py-3 text-right font-bold text-gray-800">${formatMoney(item.total)} DZD</td>
                             <td class="px-4 py-3 text-center">
                                 <button onclick="removeItem(${index})" class="text-gray-400 hover:text-red-500 transition text-lg">
                                     <i class="fa-solid fa-trash-can"></i>
@@ -333,7 +336,7 @@
                     `;
                 });
             }
-            document.getElementById('total-general').innerText = formatMoney(grandTotal);
+            document.getElementById('total-general').innerText = formatMoney(grandTotal) + ' DZD';
         }
 
         function clearAll() {
@@ -342,6 +345,7 @@
             document.getElementById('fournisseur_nom').value = '';
             document.getElementById('email_to').value = '';
             document.getElementById('email_cc').value = '';
+            document.getElementById('pdf_file').value = '';
         }
 
         function showPage(page) {
@@ -384,7 +388,7 @@
                         <td class="px-4 py-3 border-r text-gray-500 text-xs">${order.date}</td>
                         <td class="px-4 py-3 border-r font-bold text-gray-700">${order.fournisseur}</td>
                         <td class="px-4 py-3 border-r text-center font-bold text-gray-600">${order.itemsCount}</td>
-                        <td class="px-4 py-3 border-r text-right font-bold text-green-600">${formatMoney(order.total)}</td>
+                        <td class="px-4 py-3 border-r text-right font-bold text-green-600">${formatMoney(order.total)} DZD</td>
                         <td class="px-4 py-3 text-center">
                             <button onclick="downloadExcelFromHistory('${order.id}')" class="bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded transition shadow-sm" title="Télécharger l'Excel">
                                 <i class="fa-solid fa-file-excel"></i>
@@ -395,7 +399,7 @@
             });
         }
 
-        function generateExcel(orderData) {
+        function createExcelWorkbook(orderData) {
             const excelData = orderData.items.map(item => ({
                 'Référence SAP': item.ref,
                 'Désignation': item.designation,
@@ -419,8 +423,12 @@
             const ws = XLSX.utils.json_to_sheet(excelData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Commande PO");
+            return wb;
+        }
 
-            const fileName = `PO_${orderData.fournisseur.replace(/[^a-z0-9]/gi, '_')}_${orderData.id}.xlsx`;
+        function generateExcel(orderData) {
+            const wb = createExcelWorkbook(orderData);
+            const fileName = `SAP_PO_${orderData.fournisseur.replace(/[^a-z0-9]/gi, '_')}_${orderData.id}.xlsx`;
             XLSX.writeFile(wb, fileName);
         }
 
@@ -430,10 +438,10 @@
             if(order) generateExcel(order);
         }
 
-        // 1. OUVRIR LA DEMANDE DE CONFIRMATION
         function ouvrirDemandeConfirmation() {
             const fournisseur = document.getElementById('fournisseur_nom').value;
             const email = document.getElementById('email_to').value;
+            const pdfFile = document.getElementById('pdf_file').files[0];
 
             if(items.length === 0) { alert("Veuillez ajouter au moins un article."); return; }
             if(!fournisseur || !email) { alert("Nom de l'entreprise et Email du destinataire requis."); return; }
@@ -442,21 +450,54 @@
 
             document.getElementById('confirm-email').innerText = email;
             document.getElementById('confirm-fournisseur').innerText = fournisseur;
-            document.getElementById('confirm-total').innerText = formatMoney(total);
+            document.getElementById('confirm-total').innerText = formatMoney(total) + " DZD";
             document.getElementById('confirm-count').innerText = items.length;
+            
+            if(pdfFile) {
+                document.getElementById('confirm-pdf-status').classList.remove('hidden');
+            } else {
+                document.getElementById('confirm-pdf-status').classList.add('hidden');
+            }
 
             document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
         function fermerConfirmationModal() {
             document.getElementById('confirm-modal').classList.add('hidden');
+            resetButton();
         }
 
-        // 2. EXÉCUTER L'ENVOI AUTOMATIQUE APRÈS CONFIRMATION
-        function traiterEnvoiAutomatique() {
+        function setButtonLoading() {
+            document.getElementById('btn-confirm-send').disabled = true;
+            document.getElementById('spinner-icon').classList.remove('fa-check');
+            document.getElementById('spinner-icon').classList.add('fa-spinner', 'fa-spin');
+            document.getElementById('btn-text').innerText = "Envoi en cours...";
+        }
+
+        function resetButton() {
+            document.getElementById('btn-confirm-send').disabled = false;
+            document.getElementById('spinner-icon').classList.add('fa-check');
+            document.getElementById('spinner-icon').classList.remove('fa-spinner', 'fa-spin');
+            document.getElementById('btn-text').innerText = "Confirmer & Envoyer";
+        }
+
+        // Fonction pour convertir un fichier en Base64
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function traiterEnvoiAutomatique() {
+            setButtonLoading();
+
             const fournisseur = document.getElementById('fournisseur_nom').value;
             const email = document.getElementById('email_to').value;
             const cc = document.getElementById('email_cc').value;
+            const pdfFile = document.getElementById('pdf_file').files[0];
             const total = items.reduce((sum, item) => sum + item.total, 0);
 
             const orderData = {
@@ -470,46 +511,85 @@
                 items: [...items]
             };
 
-            // Sauvegarder dans l'historique
-            saveToHistory(orderData);
+            // 1. Préparation du fichier Excel en Base64
+            const wb = createExcelWorkbook(orderData);
+            const excelBase64 = XLSX.write(wb, {bookType:'xlsx', type:'base64'});
+            const excelFileName = `SAP_PO_${fournisseur.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
 
-            // Préparation des paramètres de l'email
-            let tableHTML = items.map(i => `${i.ref} | ${i.designation} | Qte: ${i.qte} | PU: ${i.pu} DZD | Total: ${i.total} DZD`).join('\n');
-            
-            const templateParams = {
-                to_email: email,
-                cc_email: cc,
-                from_name: currentUser,
-                fournisseur_nom: fournisseur,
-                total_amount: formatMoney(total),
-                details: tableHTML
+            // 2. Préparation du PDF en Base64 (si existant)
+            let pdfBase64 = null;
+            let pdfName = null;
+            if (pdfFile) {
+                pdfName = pdfFile.name;
+                pdfBase64 = await getBase64(pdfFile);
+            }
+
+            // 3. Modèle d'email HTML fidèle à l'image
+            const emailHtmlBody = `
+            <div style="font-family: Arial, sans-serif; color: #333; font-size: 14px;">
+                <p>Bonjour,</p><br>
+                <p>Une nouvelle demande d'achat a été saisie par :<br>
+                <a href="mailto:sofiane.touari@serioplast.com">sofiane.touari@serioplast.com</a></p><br>
+
+                <p>RÉSUMÉ COMMANDE :<br>
+                -------------------------------------------------<br>
+                Fournisseur : ${fournisseur} (NEW)<br>
+                Total &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: ${total.toFixed(2)} DZD<br>
+                Articles &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: ${items.length}<br>
+                -------------------------------------------------</p><br>
+
+                <p>Vous trouverez en pièce jointe :<br>
+                1. Le fichier d'import SAP (.xlsx)<br>
+                2. Le justificatif (si fourni)</p><br><br>
+
+                <p>[NOUVEAU FOURNISSEUR]<br>
+                Nom: ${fournisseur}<br>
+                Adresse/Contact:</p>
+            </div>
+            `;
+
+            const payload = {
+                to: email,
+                cc: cc,
+                replyTo: 'sofiane.touari@serioplast.com',
+                subject: `Nouvelle demande d'achat PO - ${fournisseur}`,
+                body: emailHtmlBody,
+                excelData: excelBase64,
+                excelName: excelFileName,
+                pdfData: pdfBase64,
+                pdfName: pdfName
             };
 
-            // Masquer la fenêtre de confirmation
-            fermerConfirmationModal();
+            try {
+                // Envoi à Google Apps Script
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Évite les erreurs de blocage de navigateur
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-            // Si EmailJS est configuré, on envoie en tâche de fond
-            if(window.emailjs && EMAILJS_PUBLIC_KEY !== "YOUR_PUBLIC_KEY") {
-                emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
-                    .then(() => {
-                        document.getElementById('success-modal').classList.remove('hidden');
-                    })
-                    .catch((err) => {
-                        console.error("Erreur d'envoi EmailJS:", err);
-                        // Mode fallback direct
-                        generateExcel(orderData);
-                        document.getElementById('success-modal').classList.remove('hidden');
-                    });
-            } else {
-                // Si les clés EmailJS ne sont pas renseignées, génère l'Excel automatiquement et affiche la modale de succès
-                generateExcel(orderData);
+                // Succès
+                fermerConfirmationModal();
+                saveToHistory(orderData);
+                generateExcel(orderData); // Téléchargement local de sauvegarde
                 document.getElementById('success-modal').classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Erreur:", error);
+                fermerConfirmationModal();
+                document.getElementById('error-message').innerText = "Vérifiez votre connexion internet.";
+                document.getElementById('error-modal').classList.remove('hidden');
             }
         }
 
         function closeModal() {
             document.getElementById('success-modal').classList.add('hidden');
             clearAll(); 
+        }
+
+        function closeErrorModal() {
+            document.getElementById('error-modal').classList.add('hidden');
         }
     </script>
 </body>
