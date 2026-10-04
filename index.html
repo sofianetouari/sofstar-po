@@ -285,7 +285,7 @@
     </div>
 
     <script>
-        // LA CLÉ SECRÈTE N'EST PLUS ICI ! ELLE EST CACHÉE DANS LE GOOGLE SCRIPT.
+        // URL GOOGLE APPS SCRIPT
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzVG5KKaPtq6boWHs9mZhZixnRWpMawPiyX1aAukdOIWIcJ1sQmal_Y3AHwIzg1_OAk3Q/exec";
 
         const fournisseursDB = { "M & P'S SHIRTS": "contact@mps.com", "SEMMAR Fouzi": "fouzi@semmar.dz", "DZ LOGISTIC": "dzrh.logistic@serioplast.com" };
@@ -394,7 +394,7 @@
             document.getElementById('total-general').innerText = formatMoney(grandTotal) + ' DZD';
         }
 
-        // ======================= IA GOOGLE GEMINI (SÉCURISÉE) =======================
+        // ======================= IA GOOGLE GEMINI (NOUVELLE VERSION AVEC ERREURS DÉTAILLÉES) =======================
         document.getElementById('pdf_file').addEventListener('change', function() {
             const aiBtn = document.getElementById('btn-ai');
             if(this.files.length > 0) aiBtn.classList.remove('hidden');
@@ -414,23 +414,29 @@
                 let filesPayload = [];
                 for(let file of files) {
                     let base64 = await getBase64(file);
-                    // On garde juste le code base64 pur (sans l'entête)
-                    filesPayload.push({ mime: file.type || "image/jpeg", base64: base64.split(',')[1] });
+                    let mime = file.type;
+                    // Détection intelligente du type si le navigateur ne le donne pas
+                    if(!mime || mime === "") {
+                        if(file.name.toLowerCase().endsWith('.pdf')) mime = "application/pdf";
+                        else if(file.name.toLowerCase().endsWith('.png')) mime = "image/png";
+                        else mime = "image/jpeg";
+                    }
+                    filesPayload.push({ mime: mime, base64: base64.split(',')[1] });
                 }
 
-                // On demande au Google Script de faire le travail de l'IA !
                 const payload = { action: "analyze", files: filesPayload };
 
                 const response = await fetch(GAS_URL, { 
                     method: 'POST', 
-                    // text/plain évite les blocages de sécurité navigateurs (CORS preflight)
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
                     body: JSON.stringify(payload) 
                 });
 
                 const data = await response.json();
                 
-                if(data.status === "error") throw new Error(data.msg);
+                if(data.status === "error") {
+                    throw new Error(data.msg);
+                }
 
                 const extracted = JSON.parse(data.data);
 
@@ -448,7 +454,7 @@
 
             } catch(e) {
                 console.error(e);
-                alert("Erreur lors de l'analyse IA. Assurez-vous que le document est lisible.");
+                alert("Détail du problème : " + e.message); // Affiche la VRAIE erreur envoyée par Google
             } finally {
                 document.getElementById('btn-ai').disabled = false;
                 document.getElementById('ai-spinner').classList.replace('fa-spinner', 'fa-wand-magic-sparkles');
