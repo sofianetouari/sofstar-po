@@ -394,7 +394,7 @@
             document.getElementById('total-general').innerText = formatMoney(grandTotal) + ' DZD';
         }
 
-        // ======================= IA GOOGLE GEMINI (NOUVELLE VERSION AVEC ERREURS DÉTAILLÉES) =======================
+        // ======================= IA (Netlify AI Gateway - Gemini) =======================
         document.getElementById('pdf_file').addEventListener('change', function() {
             const aiBtn = document.getElementById('btn-ai');
             if(this.files.length > 0) aiBtn.classList.remove('hidden');
@@ -426,19 +426,21 @@
 
                 const payload = { action: "analyze", files: filesPayload };
 
-                const response = await fetch(GAS_URL, { 
+                const response = await fetch('/api/analyze', { 
                     method: 'POST', 
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+                    headers: { 'Content-Type': 'application/json' }, 
                     body: JSON.stringify(payload) 
                 });
 
+                if(response.status === 413) throw new Error("Fichiers trop volumineux (max ~4 Mo au total).");
                 const data = await response.json();
                 
                 if(data.status === "error") {
                     throw new Error(data.msg);
                 }
 
-                const extracted = JSON.parse(data.data);
+                const extracted = data.data;
+                if(extracted.length === 0) throw new Error("Aucun article détecté dans le document.");
 
                 extracted.forEach(item => {
                     items.push({
